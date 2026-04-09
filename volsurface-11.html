@@ -84,9 +84,7 @@
       color: #00e6e6;
       letter-spacing: 0.5px;
       pointer-events: none;
-    }
-
-    /* Asset switcher — top-right */
+    }    /* Asset switcher — top-right */
     #asel {
       position: absolute;
       top: 16px;
@@ -177,47 +175,6 @@
       width: 100%;
       height: 100%;
     }
-
-    /* Loading */
-    #ld {
-      position: absolute;
-      inset: 0;
-      background: #101114;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      gap: 16px;
-    }
-
-    #ldsym {
-      font-size: 30px;
-      font-weight: 700;
-      letter-spacing: 3px;
-    }
-
-    #ldbarw {
-      width: 200px;
-      height: 2px;
-      background: #222;
-      border-radius: 1px;
-      overflow: hidden;
-    }
-
-    #ldbar {
-      height: 100%;
-      width: 5%;
-      border-radius: 1px;
-      transition: width .4s;
-    }
-
-    #ldtxt {
-      font-size: 9.5px;
-      color: #555;
-      letter-spacing: 1px;
-      font-weight: 600;
-    }
   </style>
 </head>
 
@@ -238,14 +195,6 @@
     <div id="sr">
       <span id="st">LOADING</span>
       <span id="cd"></span>
-    </div>
-
-    <div id="ld">
-      <div id="ldsym" style="color:#FF9900">BTC</div>
-      <div id="ldbarw">
-        <div id="ldbar" style="background:#FF9900"></div>
-      </div>
-      <div id="ldtxt">DERIBIT LIVE FEED...</div>
     </div>
 
     <div id="plot_final"></div>
@@ -322,24 +271,18 @@
 
     async function load(sym) {
       const col = sym === 'btc' ? '#FF9900' : '#00B7EB', nm = sym === 'btc' ? 'BTC' : 'ETH';
-      ld(true, nm, col);
       try {
         let d;
         try {
-          ltxt('DERIBIT LIVE FEED...', 30);
           d = await deribit(sym === 'btc' ? 'BTC' : 'ETH');
           if (!d.pts || d.pts.length < 30) throw 0;
-          ltxt(`PROCESSING ${d.pts.slice(0, 300).length}…`, 70);
         } catch (e) {
-          ltxt('SABR MODEL FEED…', 55);
           d = await sabr(sym);
         }
-        ltxt('RENDERING SURFACE…', 90);
         C[sym] = d;
         await new Promise(r => setTimeout(r, 100));
-        ld(false);
         draw(sym);
-      } catch (e) { ld(false); st('er', 'ERROR'); }
+      } catch (e) { st('er', 'ERROR'); }
     }
 
     function draw(sym) {
@@ -460,16 +403,6 @@
       if (!C[sym]) await load(sym); else draw(sym);
     }
 
-    function ld(on, nm, col) {
-      document.getElementById('ld').style.display = on ? 'flex' : 'none';
-      if (on) {
-        document.getElementById('ldsym').textContent = nm || '';
-        document.getElementById('ldsym').style.color = col || '#333';
-        document.getElementById('ldbar').style.background = col || '#4a9eff';
-        document.getElementById('ldbar').style.width = '6%';
-      }
-    }
-    function ltxt(t, p) { document.getElementById('ldtxt').textContent = t; document.getElementById('ldbarw').style.display = 'block'; document.getElementById('ldbar').style.width = p + '%'; }
     function st(cls, txt) { const e = document.getElementById('st'); e.textContent = txt; e.className = cls; }
     function tick() {
       if (TM) clearInterval(TM); TR = 1800;
