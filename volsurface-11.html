@@ -235,9 +235,9 @@ function draw(sym){
     type:'surface',x:kG,y:dG,z:zG,colorscale:CS,opacity:0.95,showscale:true,
     hovertemplate:'STRIKE: $%{x:,.0f}<br>DTE: %{y}<br>IV: %{z:.1f}%<extra></extra>',
     contours: { 
-      x: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'#ffffff', highlightwidth:3}, 
-      y: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'#ffffff', highlightwidth:3}, 
-      z: {show: false, highlight: true, highlightcolor:'rgba(255,255,255,0.5)', highlightwidth:1} 
+      x: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'rgba(150,150,150,0.9)', highlightwidth:2}, 
+      y: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'rgba(150,150,150,0.9)', highlightwidth:2}, 
+      z: {show: false, highlight: true, highlightcolor:'rgba(255,255,255,0.3)', highlightwidth:1} 
     },
     colorbar:{title:{text:'IV %',font:{color:'#666',size:10},side:'top'},
       tickfont:{color:'#666',size:9},ticksuffix:'%',
