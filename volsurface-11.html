@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Volatility Surface</title>
+<title>VOLATILITY SURFACE V12 - BACKQUANT FINAL</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.1/plotly.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -52,6 +53,7 @@ html,body{width:100%;height:100%;background:#101114;overflow:hidden;
 #cd{font-size:9px;color:#333340;font-variant-numeric:tabular-nums;font-weight:600;}
 
 #plot{flex:1;min-height:0;width:100%;}
+#plot_final{flex:1;min-height:0;width:100%;height:100%;}
 
 /* Loading */
 #ld{position:absolute;inset:0;background:#101114;
@@ -67,9 +69,8 @@ html,body{width:100%;height:100%;background:#101114;overflow:hidden;
 
 <div id="wrap">
   <div id="vheader">
-    <span class="vtitle">Volatility Surface</span>
-    <span class="vq">?</span>
-    <span class="vsub">3D IV Surface</span>
+    <span class="vtitle">Volatility Surface V12</span>
+    <span class="vsub" id="V_STATE">V12 - FINAL CLEAN RENDER</span>
   </div>
   <div id="spotbox">Spot: <span id="spotval"></span></div>
 
@@ -86,10 +87,10 @@ html,body{width:100%;height:100%;background:#101114;overflow:hidden;
   <div id="ld">
     <div id="ldsym" style="color:#FF9900">BTC</div>
     <div id="ldbarw"><div id="ldbar" style="background:#FF9900"></div></div>
-    <div id="ldtxt">FETCHING OPTIONS DATA…</div>
+    <div id="ldtxt">DERIBIT LIVE FEED...</div>
   </div>
 
-  <div id="plot"></div>
+  <div id="plot_final"></div>
 </div>
 
 <script>
@@ -97,10 +98,13 @@ const C={};
 let CUR='btc',TM=null,TR=1800; // 30 minutes update limit!
 
 async function deribit(cur){
-  const u=s=>fetch(s,{signal:AbortSignal.timeout(12000)}).then(r=>r.json());
+  const g=async u=>{
+    try{const r=await fetch(u,{signal:AbortSignal.timeout(8000)});if(r.ok)return r.json();}catch(e){}
+    return fetch('https://corsproxy.io/?url='+encodeURIComponent(u),{signal:AbortSignal.timeout(10000)}).then(r=>r.json());
+  };
   const [bk,ix]=await Promise.all([
-    u(`https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${cur}&kind=option`),
-    u(`https://www.deribit.com/api/v2/public/get_index_price?index_name=${cur.toLowerCase()}_usd`)
+    g(`https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${cur}&kind=option`),
+    g(`https://www.deribit.com/api/v2/public/get_index_price?index_name=${cur.toLowerCase()}_usd`)
   ]);
   const spot=ix.result?.index_price||0;
   const now=Date.now();
@@ -112,8 +116,8 @@ async function deribit(cur){
     const K=parseFloat(p[2]);
     const exp=new Date(p[1].replace(/(\d+)([A-Z]+)(\d+)/,'$1 $2 20$3')+' 08:00 UTC');
     const dte=Math.round((exp-now)/86400000);
-    if(dte<1||dte>180)return;
-    if(spot>0&&(K<spot*0.50||K>spot*1.55))return;
+    if(dte<1||dte>365)return;
+    if(spot>0&&(K<spot*0.25||K>spot*2.50))return;
     pts.push({K,dte,iv:b.mark_iv});
   });
   return{spot,pts};
@@ -150,10 +154,8 @@ async function sabr(sym){
         const chi=Math.abs(z)<1e-8?1:Math.log((Math.sqrt(1-2*ro*z+z*z)+z-ro)/(1-ro))/z;
         const t1=al/(Math.pow(F*K,(1-be)/2)*(1+((1-be)*Math.log(F/K))**2/24+((1-be)*Math.log(F/K))**4/1920));
         const t2=1+((1-be)**2/24*al**2/Math.pow(F*K,1-be)+ro*be*nu*al/(4*Math.pow(F*K,(1-be)/2))+nu**2*(2-3*ro**2)/24)*tau;
-        iv=Math.max(5,t1*(z/chi)*t2*100);
+        iv=Math.max(10,t1*(z/chi)*t2*100);
       }
-      if(dte<=5) iv*=(1+0.4*Math.exp(-Math.pow(pct/0.08,2)));
-      if(dte<=10&&Math.abs(pct)>0.2) iv*=1.15;
       pts.push({K,dte,iv});
     }
   });
@@ -166,17 +168,17 @@ async function load(sym){
   try{
     let d;
     try{
-      ltxt('CONNECTING TO DERIBIT…',30);
+      ltxt('DERIBIT LIVE FEED...',30);
       d=await deribit(sym==='btc'?'BTC':'ETH');
-      if(!d.pts||d.pts.length<20)throw 0;
-      ltxt(`PROCESSING ${d.pts.length} OPTIONS…`,70);
+      if(!d.pts||d.pts.length<30)throw 0;
+      ltxt(`PROCESSING ${d.pts.slice(0,300).length}…`,70);
     }catch(e){
-      ltxt('SABR MODEL — BINANCE DATA…',55);
+      ltxt('SABR MODEL FEED…',55);
       d=await sabr(sym);
     }
-    ltxt('RENDERING…',90);
+    ltxt('RENDERING SURFACE…',90);
     C[sym]=d;
-    await new Promise(r=>setTimeout(r,50));
+    await new Promise(r=>setTimeout(r,100));
     ld(false);
     draw(sym);
   }catch(e){ld(false);st('er','ERROR');}
@@ -184,8 +186,6 @@ async function load(sym){
 
 function draw(sym){
   const d=C[sym];if(!d)return;
-  const ib=sym==='btc';
-  // Formating spot with space and comma as per screenshot
   const spotRaw=d.spot.toFixed(2);
   const parts = spotRaw.split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -193,79 +193,95 @@ function draw(sym){
 
   const CS=[
     [0.0, '#10174F'],
-    [0.2, '#354AA8'],
-    [0.4, '#7F93E4'],
-    [0.5, '#E5E6E8'],
-    [0.6, '#F8CE5D'],
-    [0.8, '#D85412'],
+    [0.15, '#1E2B8F'],
+    [0.3, '#354AA8'],
+    [0.45, '#7F93E4'],
+    [0.6, '#E5E6E8'],
+    [0.75, '#F8CE5D'],
+    [0.9, '#D85412'],
     [1.0, '#980C00']
   ];
 
   const xs=d.pts.map(p=>p.K),ys=d.pts.map(p=>p.dte),zs=d.pts.map(p=>p.iv);
   const kMn=Math.min(...xs),kMx=Math.max(...xs);
   const dMn=Math.min(...ys),dMx=Math.max(...ys);
-  const nK=36,nD=24;
+  const nK=85,nD=55; // ULTRA HIGH
   const kG=Array.from({length:nK},(_,i)=>kMn+i*(kMx-kMn)/(nK-1));
   const dG=Array.from({length:nD},(_,i)=>{
     const t=i/(nD-1);
-    return Math.round(dMn+(dMx-dMn)*Math.pow(t,0.55));
+    return Math.round(dMn+(dMx-dMn)*Math.pow(t,0.65));
   }).filter((v,i,a)=>a.indexOf(v)===i).sort((a,b)=>a-b);
 
-  const bwK=(kMx-kMn)/10;
+  const rangeK = (kMx - kMn) || 1;
+  const rangeD = (dMx - dMn) || 1;
+
   const zG=dG.map(td=>{
-    const bwD=Math.max(4,td*0.22);
     return kG.map(tk=>{
       let sw=0,sz=0;
       d.pts.forEach(p=>{
-        const dk=(p.K-tk)/bwK,dd=(p.dte-td)/bwD;
-        const w=Math.exp(-0.5*(dk*dk+dd*dd));
-        if(w>5e-4){sw+=w;sz+=w*p.iv;}
+        const dk = (p.K - tk) / rangeK;
+        const dd = (p.dte - td) / rangeD;
+        const distSq = (dk * dk) + (dd * dd);
+        // ULTRA SHARP POWER OF 4
+        const w = 1.0 / (Math.pow(distSq, 2) + 1e-9);
+        sw += w;
+        sz += w * p.iv;
       });
-      return sw>0.02?sz/sw:null;
+      return sw > 0 ? sz / sw : null;
     });
   });
 
-  const plotEl=document.getElementById('plot');
-  Plotly.react(plotEl,[
-    {
-      type:'surface',x:kG,y:dG,z:zG,colorscale:CS,opacity:0.95,showscale:true,
-      colorbar:{title:{text:'IV %',font:{color:'#ccc',size:12},side:'right'},
-        tickfont:{color:'#ccc',size:11},ticksuffix:'%',
-        thickness:12,len:0.65,x:1.01,bgcolor:'rgba(0,0,0,0)',outlinecolor:'#222',outlinewidth:0},
-      hovertemplate:'Strike: $%{x:,.0f}<br>DTE: %{y} days<br>IV: %{z:.1f}%<extra></extra>',
-      lighting:{ambient:.75,diffuse:.62,specular:.25,roughness:.5,fresnel:.15},
-      lightposition:{x:-500,y:-2000,z:4000},
+  const traceSurface = {
+    type:'surface',x:kG,y:dG,z:zG,colorscale:CS,opacity:0.95,showscale:true,
+    hovertemplate:'STRIKE: $%{x:,.0f}<br>DTE: %{y}<br>IV: %{z:.1f}%<extra></extra>',
+    contours: { 
+      x: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'#ffffff', highlightwidth:3}, 
+      y: {show: false, color: 'rgba(255,255,255,0.1)', width: 1, highlight: true, highlightcolor:'#ffffff', highlightwidth:3}, 
+      z: {show: false, highlight: true, highlightcolor:'rgba(255,255,255,0.5)', highlightwidth:1} 
     },
-    {
-      type:'scatter3d',
-      x:xs,y:ys,z:zs,mode:'markers',
-      marker:{size:1.6,color:zs,colorscale:CS,cmin:Math.min(...zs),cmax:Math.max(...zs),opacity:0.35,showscale:false},
-      hovertemplate:'Strike: $%{x:,.0f}<br>DTE: %{y} days<br>IV: %{z:.1f}%<extra></extra>',
-      showlegend:false,
-    }
-  ],{
+    colorbar:{title:{text:'IV %',font:{color:'#666',size:10},side:'top'},
+      tickfont:{color:'#666',size:9},ticksuffix:'%',
+      thickness:10,len:0.7,x:0.99,bgcolor:'rgba(0,0,0,0)',outlinecolor:'transparent'},
+    lighting:{ambient:0.7,diffuse:0.8,specular:0.5,roughness:0.4,fresnel:0.2},
+    lightposition:{x:100,y:100,z:1000},
+  };
+
+  const traceScatter = {
+    type:'scatter3d',
+    x:xs,y:ys,z:zs,mode:'markers',
+    marker:{size:1.4,color:zs,colorscale:CS,cmin:Math.min(...zs),cmax:Math.max(...zs),opacity:0.25,showscale:false},
+    hoverinfo: 'none',
+    showlegend:false,
+  };
+
+  const plotEl=document.getElementById('plot_final');
+  Plotly.react(plotEl, [traceSurface, traceScatter], {
     paper_bgcolor:'#101114',plot_bgcolor:'#101114',
-    margin:{l:0,r:100,t:40,b:20},
+    autosize:true,
+    margin:{l:0,r:95,t:30,b:0},
     scene:{
       bgcolor:'#101114',
       camera:{eye:{x:1.6,y:1.3,z:0.55},center:{x:0,y:0,z:-0.15},up:{x:0,y:0,z:1}},
       aspectmode:'manual',aspectratio:{x:1.4,y:1.2,z:0.85},
-      xaxis:{title:{text:'Strike ($)',font:{color:'#aaa',size:13}},tickfont:{color:'#999',size:11},
-        gridcolor:'rgba(255,255,255,0.4)',linecolor:'rgba(255,255,255,0)',backgroundcolor:'#101114',showspikes:false},
-      yaxis:{title:{text:'Days to Expiry',font:{color:'#aaa',size:13}},tickfont:{color:'#999',size:11},
-        gridcolor:'rgba(255,255,255,0.4)',linecolor:'rgba(255,255,255,0)',backgroundcolor:'#101114',showspikes:false},
-      zaxis:{title:{text:'IV (%)',font:{color:'#aaa',size:13}},tickfont:{color:'#999',size:11},ticksuffix:'%',
-        gridcolor:'rgba(255,255,255,0.4)',linecolor:'rgba(255,255,255,0)',backgroundcolor:'#101114',showspikes:false},
+      xaxis:{title:{text:'STRIKE ($)',font:{color:'#666',size:11}},tickfont:{color:'#555',size:9},
+        gridcolor:'rgba(255,255,255,0.12)',linecolor:'transparent',backgroundcolor:'#101114',
+        showgrid:true,showspikes:true,spikemode:'across',spikesnap:'cursor',spikecolor:'rgba(255,255,255,0.4)',spikethickness:1},
+      yaxis:{title:{text:'EXPIRY (DTE)',font:{color:'#666',size:11}},tickfont:{color:'#555',size:9},
+        gridcolor:'rgba(255,255,255,0.12)',linecolor:'transparent',backgroundcolor:'#101114',
+        showgrid:true,showspikes:true,spikemode:'across',spikesnap:'cursor',spikecolor:'rgba(255,255,255,0.4)',spikethickness:1},
+      zaxis:{title:{text:'VOLATILITY (%)',font:{color:'#666',size:11}},tickfont:{color:'#555',size:9},ticksuffix:'%',
+        gridcolor:'rgba(255,255,255,0.12)',linecolor:'transparent',backgroundcolor:'#101114',
+        showgrid:true,showspikes:true,spikemode:'across',spikesnap:'cursor',spikecolor:'rgba(255,255,255,0.4)',spikethickness:1},
     },
     font:{color:'#ccc',family:'Inter,Arial,sans-serif'},
     hoverlabel:{bgcolor:'#333333',bordercolor:'#ffffff',font:{color:'#ffffff',size:13,family:'Inter,-apple-system,sans-serif'}},
+    hovermode:'closest'
   },{responsive:true,displayModeBar:true,
     modeBarButtonsToRemove:['toImage','sendDataToCloud','toggleSpikelines'],displaylogo:false});
 
   document.getElementById('spotval').textContent=`${sfsp}`;
   st('ok',d.fb?'● SABR MODEL':'● LIVE');
   tick();
-  setTimeout(()=>Plotly.Plots.resize(plotEl),300);
 }
 
 async function go(sym){
@@ -285,13 +301,11 @@ function ld(on,nm,col){
     document.getElementById('ldbar').style.width='6%';
   }
 }
-function ltxt(t,p){document.getElementById('ldtxt').textContent=t;document.getElementById('ldbar').style.width=p+'%';}
+function ltxt(t,p){document.getElementById('ldtxt').textContent=t;document.getElementById('ldbarw').style.display='block';document.getElementById('ldbar').style.width=p+'%';}
 function st(cls,txt){const e=document.getElementById('st');e.textContent=txt;e.className=cls;}
 function tick(){
-  if(TM)clearInterval(TM);TR=1800; // 30 minutes limit for updates
-  TM=setInterval(()=>{
-    TR--;if(TR<=0){TR=1800;delete C[CUR];load(CUR);}
-  },1000);
+  if(TM)clearInterval(TM);TR=1800;
+  TM=setInterval(()=>{ TR--;if(TR<=0){TR=1800;delete C[CUR];load(CUR);} },1000);
 }
 
 document.addEventListener('keydown',e=>{
