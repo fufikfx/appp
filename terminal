@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bloomberg IMAP - SPX</title>
+<style>
+:root {
+  --bg-black: #000000;
+  --bb-red-hdr: #850000;
+  --bb-gold: #ffb84d;
+  --bb-orange: #fbb034;
+  --bb-blue-path: #4a90e2;
+  --bb-news-bg: #001233;
+  --bb-news-hdr: #002255;
+  --bb-dark-red: #600000;
+  --bb-bright-green: #00ff00;
+  --bb-dark-green: #004d00;
+  --font-ui: Arial, Helvetica, sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { 
+  background: var(--bg-black); 
+  color: #fff; 
+  font-family: var(--font-ui); 
+  font-size: 13px; 
+  height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* TOP NAV */
+.top-nav { background: #000; display: flex; align-items: center; padding: 2px 6px; height: 26px; gap: 4px; border-bottom: 1px solid #333; flex-shrink: 0; }
+.nav-arrows { color: #fff; font-weight: bold; font-size: 14px; padding: 0 4px; cursor: pointer; letter-spacing: 2px; }
+.nav-dd { 
+  background: #e0e0e0; 
+  color: #000; 
+  border: 1px solid #aaa; 
+  padding: 1px 20px 1px 6px; 
+  position: relative; 
+  font-size: 12px; 
+  height: 20px; 
+  line-height: 16px; 
+  cursor: pointer;
+}
+.nav-dd::after { 
+  content: '▾'; 
+  position: absolute; 
+  right: 0; 
+  top: 0; 
+  bottom: 0;
+  width: 16px;
+  background: #ccc;
+  border-left: 1px solid #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+.top-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.top-right span { cursor: pointer; color: #fff; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.top-right .help { background: var(--bb-gold); color: #000; font-weight: bold; padding: 0 6px; height: 18px; }
+
+/* BACK BAR */
+.back-bar { padding: 4px 8px; font-size: 14px; color: #fff; flex-shrink: 0; }
+
+/* RED HEADER */
+.red-bar { background: var(--bb-red-hdr); display: flex; align-items: center; padding: 3px 8px; font-size: 13px; font-weight: normal; height: 24px; flex-shrink: 0; }
+.red-bar .title { margin-left: auto; font-style: italic; }
+.red-bar span { cursor: pointer; margin-right: 15px; }
+.red-bar span:hover { text-decoration: underline; }
+
+/* CONTROLS */
+.control-bar { background: #000; display: flex; align-items: center; padding: 3px 8px; gap: 8px; flex-shrink: 0; border-bottom: 1px solid #222; }
+.c-item { color: #000; background: var(--bb-orange); padding: 2px 6px; font-weight: bold; font-size: 13px; }
+.c-val { background: #333; color: #fff; padding: 2px 20px 2px 6px; border: 1px solid #555; position: relative; font-size: 13px; cursor: pointer; }
+.c-val::after { content: '▾'; position: absolute; right: 6px; color: #aaa; }
+.c-label { color: var(--bb-gold); font-weight: bold; }
+.c-group { display: flex; align-items: center; gap: 15px; color: var(--bb-gold); font-weight: bold; }
+.c-group .ri { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
+.c-group .rdot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #888; background: #333; }
+.c-group .ri.on .rdot { background: #4a90e2; border-color: #4a90e2; box-shadow: 0 0 4px #4a90e2; }
+.c-group .ri.on { color: var(--bb-blue-path); }
+
+/* BREADCRUMB */
+.path-line { padding: 4px 8px; display: flex; justify-content: space-between; flex-shrink: 0; font-size: 13px; }
+.path-line .l { color: var(--bb-blue-path); font-weight: bold; }
+.path-line .l span { color: var(--bb-gold); }
+.path-line .r { color: var(--bb-gold); font-weight: bold; }
+
+/* TABS */
+.tabs { display: flex; padding-left: 8px; gap: 2px; background: #000; flex-shrink: 0; }
+.tab { 
+  background: #333; 
+  color: #ccc; 
+  padding: 4px 20px; 
+  cursor: pointer; 
+  font-size: 13px; 
+  position: relative;
+}
+.tab::after {
+  content: '';
+  position: absolute;
+  top: 0; right: -10px; bottom: 0; width: 20px;
+  background: inherit;
+  transform: skewX(20deg);
+  z-index: -1;
+}
+.tab:not(:last-child) { margin-right: 12px; }
+.tab.active { background: #ccc; color: #000; font-weight: bold; z-index: 2; }
+.tab.active::after { background: #ccc; }
+
+/* CHART HEADER */
+.chart-header { padding: 6px 8px; border-top: 1px solid #555; border-bottom: 1px solid #555; font-weight: normal; flex-shrink: 0; font-size: 14px; }
+
+/* MAIN AREA */
+.main-area { flex: 1; display: flex; position: relative; overflow: hidden; background: #000; }
+.view-pane { display: none; width: 100%; height: 100%; }
+.view-pane.active { display: flex; flex-direction: column; }
+
+/* TABLE VIEW */
+.table-wrap { flex: 1; overflow-y: auto; padding: 10px; }
+.im-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.im-table th { background: var(--bb-dark-red); color: #fff; text-align: left; padding: 6px 8px; border-bottom: 1px solid #888; font-weight: normal; }
+.im-table td { padding: 5px 8px; border-bottom: 1px solid #222; }
+.im-table tr:hover td { background: #111; }
+.val-pos { color: var(--bb-bright-green); }
+.val-neg { color: #ff3333; }
+
+/* PIE VIEW */
+.pie-wrap { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+#svg-chart { width: 100%; height: 100%; max-height: 600px; display: block; }
+
+/* NEWS PANEL */
+.news-panel { background: var(--bb-news-bg); flex-shrink: 0; border-top: 1px solid #333; }
+.news-header { background: var(--bb-news-hdr); padding: 3px 12px; display: flex; justify-content: flex-end; gap: 20px; font-size: 13px; }
+.news-header span { color: #fff; cursor: pointer; }
+.news-header span .num { color: var(--bb-blue-path); }
+.news-list { padding: 4px 12px 6px; }
+.news-row { display: grid; grid-template-columns: 35px 35px 50px 1fr; gap: 10px; padding: 2px 0; font-size: 13px; cursor: pointer; font-family: var(--font-mono); }
+.news-row:hover { background: rgba(255,255,255,0.1); }
+.news-row .n { color: var(--bb-gold); }
+.news-row .src { color: var(--bb-gold); }
+.news-row .time { color: var(--bb-gold); }
+.news-row .head { color: var(--bb-gold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.news-row.white .n, .news-row.white .time { color: var(--bb-gold); }
+.news-row.white .src, .news-row.white .head { color: #fff; }
+.news-row .src.red { color: #ff4444; }
+
+/* FOOTER */
+.footer { display: flex; align-items: center; gap: 20px; padding: 6px 12px; border-top: 1px solid #333; background: #000; flex-shrink: 0; font-size: 13px; }
+.foot-lbl { color: var(--bb-gold); font-weight: normal; }
+.f-cmd { display: flex; align-items: center; gap: 8px; }
+.f-cmd .key { color: #fff; font-weight: bold; }
+.f-cmd .desc { color: #fff; }
+.f-clock { margin-left: auto; color: #888; font-size: 12px; font-family: var(--font-mono); }
+
+/* TOOLTIP */
+.tip { position: absolute; background: rgba(0,0,0,0.9); border: 1px solid #fff; color: #fff; padding: 6px 10px; pointer-events: none; z-index: 999; font-size: 12px; display: none; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+.tip .t { font-weight: bold; margin-bottom: 4px; color: var(--bb-gold); }
+.tip .row { display: flex; justify-content: space-between; gap: 15px; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="top-nav">
+  <span class="nav-arrows">&lt; &gt;</span>
+  <div class="nav-dd">S&P 500 INDEX Index</div>
+  <div class="nav-dd">IMAP</div>
+  <div class="nav-dd">Related Functions Menu</div>
+  <div class="top-right">
+    <span>✉ Message</span>
+    <span>★ ▾</span>
+    <span>⎚ ▾</span>
+    <span>⚙ ▾</span>
+    <span class="help">?</span>
+  </div>
+</div>
+
+<div class="back-bar">&lt;Back&gt; to Return</div>
+
+<div class="red-bar">
+  <span>Export</span>
+  <span>Settings ▾</span>
+  <span class="title">Intraday Market Map</span>
+</div>
+
+<div class="control-bar">
+  <div class="c-item">Equity Index</div>
+  <div class="c-val" style="min-width:120px">SPX</div>
+  <div class="c-label">Market Cap (USD)</div>
+  <div class="c-val" style="min-width:80px">All</div>
+  <div class="c-label" style="margin-left:20px">Group by</div>
+  <div class="c-group">
+    <div class="ri" onclick="setG(this)"><div class="rdot"></div>Region</div>
+    <div class="ri on" onclick="setG(this)"><div class="rdot"></div>Sector</div>
+  </div>
+</div>
+
+<div class="path-line">
+  <span class="l">SPX <span>> GICS</span></span>
+  <span class="r">505 Securities</span>
+</div>
+
+<div class="tabs">
+  <div class="tab" data-v="both" onclick="setT(this)">Pie Chart & Table</div>
+  <div class="tab" data-v="table" onclick="setT(this)">Table</div>
+  <div class="tab active" data-v="pie" onclick="setT(this)">Pie Chart</div>
+</div>
+
+<div class="chart-header">SPX Percent Price Change by GICS Sector</div>
+
+<div class="main-area">
+  <!-- PIE VIEW -->
+  <div id="view-pie" class="view-pane pie-wrap active">
+    <svg id="svg-chart" viewBox="0 0 1000 600"></svg>
+  </div>
+  
+  <!-- TABLE VIEW -->
+  <div id="view-table" class="view-pane table-wrap">
+    <table class="im-table">
+      <thead>
+        <tr>
+          <th>Sector</th>
+          <th>Weight</th>
+          <th style="text-align:right">% Change</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- SPLIT VIEW (Handled by JS layout adjustment) -->
+  <div id="tip" class="tip"></div>
+</div>
+
+<div class="news-panel">
+  <div class="news-header">
+    <span><span class="num">300)</span> Edit Panel</span>
+    <span><span class="num">301)</span> Expand Panel</span>
+  </div>
+  <div class="news-list">
+    <div class="news-row"><span class="n">414</span><span class="src red">BI</span><span class="time">19:03</span><span class="head">Eisai Covid-19 Impact Minimal; Focus on Alzheimer's: 4Q Preview</span></div>
+    <div class="news-row"><span class="n">413</span><span class="src">BI</span><span class="time">19:03</span><span class="head">Conch Cement's Earnings Should Still Grow, Albeit at Slower Rate</span></div>
+    <div class="news-row"><span class="n">412</span><span class="src">NPW</span><span class="time">19:03</span><span class="head">Ontario calls for a national strategy on contact tracing of COVID-19</span></div>
+    <div class="news-row white"><span class="n">411</span><span class="src">CBC</span><span class="time">19:03</span><span class="head">CBC: Watermark cancels season, and everything will change for 2021</span></div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="foot-lbl">Suggested Functions</span>
+  <div class="f-cmd"><span class="key">DES</span><span class="desc">Study in-depth information on an index</span></div>
+  <div class="f-cmd"><span class="key">MOV</span><span class="desc">Identify the stocks moving an index</span></div>
+  <div class="f-clock" id="clock">18:38:50</div>
+</div>
+
+<script>
+const sectors = [
+  {name:'Utilities', pct:0.75, w:3},
+  {name:'Information Technology', pct:1.42, w:28},
+  {name:'Health Care', pct:0.07, w:13},
+  {name:'Financials', pct:-0.92, w:13},
+  {name:'Consumer Discretionary', pct:0.69, w:11},
+  {name:'Industrials', pct:-1.33, w:10},
+  {name:'Consumer Staples', pct:0.00, w:7},
+  {name:'Energy', pct:-0.55, w:4},
+  {name:'Materials', pct:-0.20, w:3},
+  {name:'Real Estate', pct:0.30, w:3},
+  {name:'Communication Services', pct:0.45, w:5}
+];
+// Sort roughly to match image starting from top right
+const order = ['Information Technology', 'Health Care', 'Financials', 'Consumer Discretionary', 'Industrials', 'Consumer Staples', 'Utilities', 'Energy', 'Materials', 'Real Estate', 'Communication Services'];
+sectors.sort((a,b) => order.indexOf(a.name) - order.indexOf(b.name));
+
+const svg = document.getElementById('svg-chart');
+const tip = document.getElementById('tip');
+const mainArea = document.querySelector('.main-area');
+const CX=500, CY=300, IR=65, MR=170, OR=250;
+
+function pt(r,deg){
+  const a=(deg-90)*Math.PI/180;
+  return {x:CX+r*Math.cos(a), y:CY+r*Math.sin(a)};
+}
+
+function arc(r1,r2,a1,a2){
+  const p1=pt(r2,a1), p2=pt(r2,a2), p3=pt(r1,a2), p4=pt(r1,a1);
+  const f=a2-a1>180?1:0;
+  return `M${p1.x} ${p1.y}A${r2} ${r2} 0 ${f} 1 ${p2.x} ${p2.y}L${p3.x} ${p3.y}A${r1} ${r1} 0 ${f} 0 ${p4.x} ${p4.y}Z`;
+}
+
+function getC(p, offset=0){
+  const val = p + offset;
+  if(val >= 0){
+    // Dark green to brighter green
+    const intensity = Math.min(1, val / 2);
+    return `rgb(${Math.floor(10)}, ${Math.floor(80 + intensity * 120)}, ${Math.floor(10)})`;
+  } else {
+    // Dark red to brighter red
+    const intensity = Math.min(1, Math.abs(val) / 2);
+    return `rgb(${Math.floor(100 + intensity * 100)}, ${Math.floor(10)}, ${Math.floor(10)})`;
+  }
+}
+
+function renderChart(){
+  svg.innerHTML='';
+  let ang=30; // Start offset to match image roughly
+  let TW=sectors.reduce((a,s)=>a+s.w,0);
+  
+  sectors.forEach(sec=>{
+    const sw=(sec.w/TW)*360, sa=ang, ea=ang+sw, ma=(sa+ea)/2;
+    
+    // Sector path (inner ring)
+    const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+    path.setAttribute('d',arc(IR,MR,sa,ea));
+    path.setAttribute('fill',getC(sec.pct));
+    path.setAttribute('stroke','#fff');
+    path.setAttribute('stroke-width','0.5');
+    path.style.cursor = 'pointer';
+    path.onmousemove = (e) => showTip(e, sec.name, sec.pct, (sec.w/TW)*100);
+    path.onmouseout = hideTip;
+    svg.appendChild(path);
+
+    // Outer segments (stocks)
+    const subN = Math.max(2, Math.floor(sec.w / 1.5));
+    let sa2=sa;
+    for(let i=0; i<subN; i++){
+      const sw2=sw/subN;
+      const k=document.createElementNS("http://www.w3.org/2000/svg","path");
+      k.setAttribute('d',arc(MR,OR,sa2,sa2+sw2));
+      // Slight color variation for stocks
+      const drift = (i%2===0 ? 0.2 : -0.2);
+      k.setAttribute('fill',getC(sec.pct, drift));
+      k.setAttribute('stroke','#fff');
+      k.setAttribute('stroke-width','0.5');
+      k.style.cursor = 'pointer';
+      k.onmousemove = (e) => showTip(e, `${sec.name} Stock`, sec.pct + drift, null);
+      k.onmouseout = hideTip;
+      svg.appendChild(k);
+      sa2+=sw2;
+    }
+
+    // Labels and connection lines
+    if(sec.w >= 5 || sec.name==='Utilities'){
+      const labelRadius = OR + 30;
+      const lp = pt(labelRadius, ma);
+      const edgePt = pt(OR, ma);
+      
+      let anch='middle';
+      if(ma>10&&ma<170) anch='start';
+      else if(ma>190&&ma<350) anch='end';
+      
+      // Connect line
+      const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute('x1', edgePt.x); line.setAttribute('y1', edgePt.y);
+      line.setAttribute('x2', lp.x); line.setAttribute('y2', lp.y);
+      line.setAttribute('stroke','#ccc'); line.setAttribute('stroke-width','0.5');
+      svg.appendChild(line);
+
+      // Name Text
+      const text=document.createElementNS("http://www.w3.org/2000/svg","text");
+      text.setAttribute('x', lp.x + (anch==='start'?5:anch==='end'?-5:0)); 
+      text.setAttribute('y', lp.y - 4);
+      text.setAttribute('text-anchor', anch); 
+      text.setAttribute('fill', '#fff');
+      text.setAttribute('font-size', '13'); 
+      text.textContent = sec.name;
+      svg.appendChild(text);
+
+      // Value Text
+      const val=document.createElementNS("http://www.w3.org/2000/svg","text");
+      val.setAttribute('x', lp.x + (anch==='start'?5:anch==='end'?-5:0)); 
+      val.setAttribute('y', lp.y + 12);
+      val.setAttribute('text-anchor', anch);
+      val.setAttribute('fill', sec.pct>=0 ? 'var(--bb-bright-green)' : '#ff4444');
+      val.setAttribute('font-size', '13');
+      val.textContent = (sec.pct>=0?'+':'') + sec.pct.toFixed(2) + '%';
+      svg.appendChild(val);
+    }
+    ang=ea;
+  });
+
+  // Center disk
+  const disk=document.createElementNS("http://www.w3.org/2000/svg","circle");
+  disk.setAttribute('cx',CX); disk.setAttribute('cy',CY); disk.setAttribute('r',IR);
+  disk.setAttribute('fill', '#004d00'); // Dark green background for SPX
+  disk.setAttribute('stroke','#fff'); disk.setAttribute('stroke-width','1.5');
+  svg.appendChild(disk);
+
+  const t1=document.createElementNS("http://www.w3.org/2000/svg","text");
+  t1.setAttribute('x',CX); t1.setAttribute('y',CY-5);
+  t1.setAttribute('text-anchor','middle'); t1.setAttribute('fill','#fff');
+  t1.setAttribute('font-size','12'); 
+  t1.textContent="SPX by GICS";
+  svg.appendChild(t1);
+
+  const t2=document.createElementNS("http://www.w3.org/2000/svg","text");
+  t2.setAttribute('x',CX); t2.setAttribute('y',CY+14);
+  t2.setAttribute('text-anchor','middle'); t2.setAttribute('fill','#fff');
+  t2.setAttribute('font-size','14');
+  t2.textContent="0.43%";
+  svg.appendChild(t2);
+}
+
+function renderTable(){
+  const body = document.getElementById('table-body');
+  const TW = sectors.reduce((a,s)=>a+s.w,0);
+  body.innerHTML = '';
+  [...sectors].sort((a,b)=>b.w - a.w).forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:#fff">${s.name}</td>
+      <td style="color:#fff">${((s.w/TW)*100).toFixed(1)}%</td>
+      <td style="text-align:right; font-weight:bold; color:${s.pct>=0?'var(--bb-bright-green)':'#ff4444'}">${s.pct>=0?'+':''}${s.pct.toFixed(2)}%</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function showTip(e, name, val, weight){
+  tip.style.display = 'block';
+  setTimeout(() => tip.classList.add('show'), 10); // for transition
+  tip.style.left = (e.clientX + 15) + 'px';
+  tip.style.top = (e.clientY + 15) + 'px';
+  let html = `<div class="t">${name}</div>`;
+  html += `<div class="row"><span>Change</span> <span style="color:${val>=0?'var(--bb-bright-green)':'#ff4444'}">${val>=0?'+':''}${val.toFixed(2)}%</span></div>`;
+  if(weight) html += `<div class="row"><span>Weight</span> <span>${weight.toFixed(1)}%</span></div>`;
+  tip.innerHTML = html;
+}
+function hideTip(){ 
+  tip.classList.remove('show'); 
+  setTimeout(() => tip.style.display = 'none', 100);
+}
+
+function setT(el){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  const val = el.dataset.v;
+  const pie = document.getElementById('view-pie');
+  const tbl = document.getElementById('view-table');
+  
+  if(val === 'pie'){
+    pie.classList.add('active'); tbl.classList.remove('active');
+    pie.style.height = '100%';
+  } else if(val === 'table'){
+    pie.classList.remove('active'); tbl.classList.add('active');
+    tbl.style.height = '100%';
+  } else {
+    pie.classList.add('active'); tbl.classList.add('active');
+    pie.style.height = '60%'; tbl.style.height = '40%';
+  }
+}
+
+function setG(el){
+  document.querySelectorAll('.ri').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function tick(){
+  const d=new Date();
+  const pad = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+// Initial render
+renderChart();
+renderTable();
+tick();
+setInterval(tick, 1000);
+
+// Window resize handler to keep SVG centered
+window.addEventListener('resize', () => {
+    // Basic SVG scales well, but could adjust viewbox if needed
+});
+</script>
+</body>
+</html>
