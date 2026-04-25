@@ -73,16 +73,17 @@ body {
 .red-bar span:hover { text-decoration: underline; }
 
 /* CONTROLS */
-.control-bar { background: #000; display: flex; align-items: center; padding: 3px 8px; gap: 8px; flex-shrink: 0; border-bottom: 1px solid #222; }
-.c-item { color: #000; background: var(--bb-orange); padding: 2px 6px; font-weight: bold; font-size: 13px; }
-.c-val { background: #333; color: #fff; padding: 2px 20px 2px 6px; border: 1px solid #555; position: relative; font-size: 13px; cursor: pointer; }
-.c-val::after { content: '▾'; position: absolute; right: 6px; color: #aaa; }
-.c-label { color: var(--bb-gold); font-weight: bold; }
-.c-group { display: flex; align-items: center; gap: 15px; color: var(--bb-gold); font-weight: bold; }
-.c-group .ri { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; }
-.c-group .rdot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #888; background: #333; }
-.c-group .ri.on .rdot { background: #4a90e2; border-color: #4a90e2; box-shadow: 0 0 4px #4a90e2; }
-.c-group .ri.on { color: var(--bb-blue-path); }
+.control-bar { background: #000; display: flex; align-items: center; padding: 2px 8px; gap: 4px; flex-shrink: 0; border-bottom: 1px solid #222; font-size: 13px; }
+.c-item { color: #000; background: var(--bb-orange); padding: 2px 6px; font-weight: bold; }
+.c-val { color: #000; background: var(--bb-orange); padding: 2px 6px; font-weight: normal; cursor: pointer; }
+.c-arrow { background: #444; color: #fff; padding: 2px 6px; cursor: pointer; border-left: 1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+.c-label { color: var(--bb-gold); font-weight: bold; margin-left: 8px; margin-right: 4px; }
+.c-group { display: flex; align-items: center; gap: 12px; color: var(--bb-gold); font-weight: bold; margin-left: 12px; }
+.c-group .ri { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--bb-gold); }
+.c-group .rdot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #666; background: #333; }
+.c-group .ri.on .rdot { background: #000; border-color: #2a8cff; position: relative; }
+.c-group .ri.on .rdot::after { content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; background: #2a8cff; border-radius: 50%; }
+.c-group .ri.on { color: #2a8cff; }
 
 /* BREADCRUMB */
 .path-line { padding: 4px 8px; display: flex; justify-content: space-between; flex-shrink: 0; font-size: 13px; }
@@ -91,14 +92,16 @@ body {
 .path-line .r { color: var(--bb-gold); font-weight: bold; }
 
 /* TABS */
-.tabs { display: flex; padding-left: 8px; gap: 2px; background: #000; flex-shrink: 0; }
+.tabs { display: flex; padding-left: 8px; gap: 2px; background: #000; flex-shrink: 0; margin-top: 2px; }
 .tab { 
-  background: #333; 
-  color: #ccc; 
+  background: #444; 
+  color: #fff; 
   padding: 4px 20px; 
   cursor: pointer; 
   font-size: 13px; 
   position: relative;
+  border: 1px solid #222;
+  border-bottom: none;
 }
 .tab::after {
   content: '';
@@ -107,10 +110,12 @@ body {
   background: inherit;
   transform: skewX(20deg);
   z-index: -1;
+  border-right: 1px solid #222;
+  border-top: 1px solid #222;
 }
 .tab:not(:last-child) { margin-right: 12px; }
-.tab.active { background: #ccc; color: #000; font-weight: bold; z-index: 2; }
-.tab.active::after { background: #ccc; }
+.tab.active { background: #d0d0d0; color: #000; font-weight: bold; z-index: 2; border-color: #d0d0d0; }
+.tab.active::after { background: #d0d0d0; border-color: #d0d0d0; }
 
 /* CHART HEADER */
 .chart-header { padding: 6px 8px; border-top: 1px solid #555; border-bottom: 1px solid #555; font-weight: normal; flex-shrink: 0; font-size: 14px; }
@@ -189,9 +194,12 @@ body {
 
 <div class="control-bar">
   <div class="c-item">Equity Index</div>
+  <div class="c-arrow">▾</div>
   <div class="c-val" style="min-width:120px">SPX</div>
+  <div class="c-arrow">▾</div>
   <div class="c-label">Market Cap (USD)</div>
-  <div class="c-val" style="min-width:80px">All</div>
+  <div class="c-val" style="min-width:40px">All</div>
+  <div class="c-arrow">▾</div>
   <div class="c-label" style="margin-left:20px">Group by</div>
   <div class="c-group">
     <div class="ri" onclick="setG(this)"><div class="rdot"></div>Region</div>
@@ -295,11 +303,11 @@ function getC(p, offset=0){
   if(val >= 0){
     // Dark green to brighter green
     const intensity = Math.min(1, val / 2);
-    return `rgb(${Math.floor(10)}, ${Math.floor(80 + intensity * 120)}, ${Math.floor(10)})`;
+    return `rgb(${Math.floor(10)}, ${Math.floor(85 + intensity * 100)}, ${Math.floor(20)})`;
   } else {
     // Dark red to brighter red
     const intensity = Math.min(1, Math.abs(val) / 2);
-    return `rgb(${Math.floor(100 + intensity * 100)}, ${Math.floor(10)}, ${Math.floor(10)})`;
+    return `rgb(${Math.floor(110 + intensity * 80)}, ${Math.floor(10)}, ${Math.floor(20)})`;
   }
 }
 
@@ -384,7 +392,7 @@ function renderChart(){
   // Center disk
   const disk=document.createElementNS("http://www.w3.org/2000/svg","circle");
   disk.setAttribute('cx',CX); disk.setAttribute('cy',CY); disk.setAttribute('r',IR);
-  disk.setAttribute('fill', '#004d00'); // Dark green background for SPX
+  disk.setAttribute('fill', '#0f5c1a'); // Dark green background for SPX matching the image more closely
   disk.setAttribute('stroke','#fff'); disk.setAttribute('stroke-width','1.5');
   svg.appendChild(disk);
 
